@@ -1,0 +1,11 @@
+Game Controls:
+Arrow keys (D-Pad): Move
+X key (A button): Use item in light hand
+Z key (B button): Use item in left hand
+
+Other Controls:
+F10, Escape, Pause: Pause game
+- (minus) key: Lower volume
+= (equals) key: Raise volume
+0 key: Mute volume
+
