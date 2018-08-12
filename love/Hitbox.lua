@@ -41,6 +41,10 @@ function Hitbox:new(...)
   return obj
 end
 
+function Hitbox:dup()
+  return Hitbox:new(self)
+end
+
 function Hitbox:setPos(v)
   if #v ~= 2 then
     error'Hitbox:setPos takes one vector of length 2'

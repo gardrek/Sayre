@@ -8,23 +8,39 @@ local mt = {
 
 require 'global'
 
-requireGlobal 'inspect'
-
-requireGlobal 'Vector'
-
-global('Screen', require('Screen'):new(192, 160, 8, 'palette.png'))
-
-requireGlobal 'Color'
-
-requireGlobal 'Palette'
-requireGlobal 'Tileset'
-requireGlobal 'Map'
-
-requireGlobal 'Camera'
-
-requireGlobal 'Sound'
-
 -- Functions and Constants --------
+
+global('callback', function(f, ...)
+  if f then
+    if type(f) ~= 'function' then
+      local mt = getmetatable(f)
+      if not (type(mt) == 'table' and mt.__call) then
+        error('callback is not a function and cannot be called', 2)
+      end
+    end
+    return f(...)
+  end
+end)
+
+global('recursive_copy', function(t, d)
+  d = d or 0
+  local new = {}
+  for k, v in pairs(t) do
+    if type(v) == 'table' then
+      if d > 10 then error('breaking potential loop in recursive copy') end
+      if type(v.dup) == 'function' then
+        local d = v:dup()
+        if d == nil then error'' end
+        new[k] = d
+      else
+        new[k] = recursive_copy(v, d + 1)
+      end
+    else
+      new[k] = v
+    end
+  end
+  return new
+end)
 
 global('simpleClass', function(name)
   local c = {}
@@ -63,8 +79,28 @@ global('errorP', function(level, ...)
   error(buildString(...), level)
 end)
 
+requireGlobal 'inspect'
+
+requireGlobal 'Class'
+
+requireGlobal 'Vector'
+
+global('Screen', require('Screen'):new(192, 160, 8, 'palette.png'))
+
+requireGlobal 'Color'
+
+requireGlobal 'Palette'
+requireGlobal 'Tileset'
+requireGlobal 'Map'
+
+requireGlobal 'Camera'
+
+requireGlobal 'Sound'
+
 requireGlobal 'Attack'
 requireGlobal 'Hitbox'
+
+requireGlobal'Input'
 
 global('DEBUG_MODE', true)
 global('SLOWMO', false)
@@ -76,18 +112,17 @@ global('TILEVEC', Vector{TILESIZE, TILESIZE})
 global('HALFTILEVEC', TILEVEC / 2)
 global('ROOM_DIMENSIONS', Vector{TILESIZE * 12, TILESIZE * 8})
 
-local bigTile = 16
+requireGlobal'Mob'
+
+requireGlobal'Moblist'
+
 local smallTile = 8
+local bigTile = smallTile * 2
 
---global('mainPalette', Palette:new('palette_main.png', 16, 16))
 global('mainPalette', Palette:new('palette8.png', 8, 16))
-global('tileset16x', Tileset:load('tileset16x.png', bigTile, bigTile, mainPalette))
-global('mapTileset', Tileset:load('maptiles8x.png', smallTile, smallTile, mainPalette))
+global('mainTileset', Tileset:load('tileset.png', smallTile, smallTile, mainPalette))
 
---global('numerals8x', Tileset:load('numbers8x8.png', TILESIZE / 2, TILESIZE / 2))
---numerals8x:setCharacters'0123456789-xc.ef'
-
---global('font8x16', Tileset:load('font_italic_8x16.png', TILESIZE / 2, TILESIZE))
+--global('fontItalic', Tileset:load('font_italic_8x16.png', TILESIZE / 2, TILESIZE))
 
 --local maptiles = Tileset:load('maptiles8x8.png', 8, 8)
 --global('maptiles', maptiles)
@@ -125,6 +160,24 @@ global('dir2vec', {
   ['up'] = Vector{0, -1},
 })
 
+global('vec2dir', function (vec)
+  local axis
+  if math.abs(vec.x) > math.abs(vec.y) then
+    axis = 0
+  elseif math.abs(vec.x) < math.abs(vec.y) then
+    axis = 1
+  else
+    return
+  end
+  if vec[axis + 1] > 0 then
+    return 0 + axis
+  elseif vec[axis + 1] < 0 then
+    return 2 + axis
+  else
+    return
+  end
+end)
+
 for i = 0, 3 do
   dir2vec[i] = dir2vec[dir_name[i]]
 end
@@ -149,38 +202,6 @@ global('hold_offset', {
 setmetatable(hold_offset, mt)
 setmetatable(hold_offset.left, mt)
 setmetatable(hold_offset.right, mt)
-
-global('callback', function(f, ...)
-  if f then
-    if type(f) ~= 'function' then
-      local mt = getmetatable(f)
-      if not (type(mt) == 'table' and mt.__call) then
-        error('callback is not a function and cannot be called', 2)
-      end
-    end
-    return f(...)
-  end
-end)
-
-global('recursive_copy', function(t, d)
-  d = d or 0
-  local new = {}
-  for k, v in pairs(t) do
-    if type(v) == 'table' then
-      if d > 10 then error('breaking potential loop in recursive copy') end
-      if type(v.dup) == 'function' then
-        local d = v:dup()
-        if d == nil then error'' end
-        new[k] = d
-      else
-        new[k] = recursive_copy(v, d + 1)
-      end
-    else
-      new[k] = v
-    end
-  end
-  return new
-end)
 
 --------
 

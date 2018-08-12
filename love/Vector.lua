@@ -208,6 +208,13 @@ function Vector:unpack()
   return unpack(t)
 end
 
+function Vector:isNull()
+  for i = 1, #self do
+    if self[i] ~= 0 then return false end
+  end
+  return true
+end
+
 -- 2D-only functions
 
 function Vector:rotate(angle)

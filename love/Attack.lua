@@ -25,6 +25,16 @@ for _, name in ipairs(Attack.effect_types) do
   Attack.isEffectType[name] = true
 end
 
+Attack.isType = {}
+
+for _, name in ipairs(Attack.damage_types) do
+  Attack.isType[name] = true
+end
+
+for _, name in ipairs(Attack.effect_types) do
+  Attack.isType[name] = true
+end
+
 function Attack:new(t, n)
   local obj = t
   if type(t) == 'string' then
@@ -59,21 +69,21 @@ function Attack:dup()
   return setmetatable(dmg, Attack)
 end
 
-local function calculate_damage(damage, multiplier, resistance)
+local function calculate_final(damage, multiplier, resistance)
   return math.floor(math.max(0, damage * (multiplier) - resistance))
 end
 
 function Attack:calculate_damage(type, multiplier, resistance)
   multiplier = multiplier or 1
   resistance = resistance or 0
-  local damage = calculate_damage(self.damage[type], multiplier, resistance)
+  local damage = calculate_final(self.damage[type], multiplier, resistance)
   return damage
 end
 
 function Attack:calculate_effect(type, multiplier, resistance)
   multiplier = multiplier or 1
   resistance = resistance or 0
-  local effect = calculate_damage(self.effect[type], multiplier, resistance)
+  local effect = calculate_final(self.effect[type], multiplier, resistance)
   return effect
 end
 

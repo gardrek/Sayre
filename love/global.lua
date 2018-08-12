@@ -31,6 +31,6 @@ mt.__index = function(self, key)
     print('warning: value of special global "_" read')
     return rawget(self, key)
   else
-    error('Attempt to access uninitialized global "' .. tostring(key) .. '"', 2)
+    error('Attempt to access uninitialized variable "' .. tostring(key) .. '"', 2)
   end
 end

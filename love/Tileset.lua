@@ -89,6 +89,7 @@ function Tileset:unpackAttribute(attribute)
 end
 
 function Tileset:drawTile(tile, pos, attribute)
+  attribute = attribute or 0
   local rotation, flip, palette = self:unpackAttribute(attribute)
   self.palette:set(palette)
 
@@ -121,12 +122,43 @@ function Tileset:drawTile(tile, pos, attribute)
   love.graphics.setShader()
 end
 
+function Tileset:drawTileRaw(tile, pos)
+  love.graphics.setShader()
+
+  if tile < 0 or tile >= self.tiles then
+    --error('Tile index ' .. tostring(tile) .. ' outside tileset range of 0 to ' .. tostring(self.tiles - 1) .. '.', 2)
+    errorP(2, 'Tile index ', tile, ' outside tileset range of 0 to ', self.tiles - 1, '.')
+  end
+
+  --local sx, sy = tile % self.runWidth, math.floor(tile / self.runWidth)
+  self.quad:setViewport(
+    (tile % self.runWidth) * self.w,
+    math.floor(tile / self.runWidth) * self.h,
+    self.w,
+    self.h
+  )
+
+  local halfw = math.floor(self.w / 2)
+  local halfh = math.floor(self.h / 2)
+  love.graphics.draw(
+    self.image,
+    self.quad,
+    math.floor(pos.x),
+    math.floor(pos.y),
+    0,
+    1,
+    1,
+    halfw, halfh
+  )
+end
+
 function Tileset:setCharacters(str)
   self.characters = init_chars(str)
 end
 
 function Tileset:drawString(str, pos, attr, char_width)
   str = tostring(str)
+  attr = attr or 0
   char_width = char_width or self.char_width or self.w
   local width = self.w / 2
   local height = self.h / 2

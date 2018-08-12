@@ -1,14 +1,34 @@
-function moblist:insert(mob)
-  for i = #self, 1, -1 do
-    if self[i] == mob then
-      error'tried to insert mob twice'
-    end
+local Moblist = simpleClass'Moblist'
+
+function Moblist:new(t)
+  local moblist = {}
+  setmetatable(moblist, Moblist)
+  for i, v in ipairs(t) do
+    moblist:insert(v)
   end
-  mob.moblist = self
-  return table.insert(self, mob)
+  return moblist
 end
 
-function moblist:remove(which)
+function Moblist:insert(mob)
+  if type(mob) ~= 'table' then
+    error'invalid arguments'
+  end
+  if mob.class ~= 'Mob' then
+    error'inserting multiple mobs not implemented'
+    if #mob < 1 then
+    end
+  else
+    for i = #self, 1, -1 do
+      if self[i] == mob then
+        error'tried to insert mob twice'
+      end
+    end
+    mob.moblist = self
+    return table.insert(self, mob)
+  end
+end
+
+function Moblist:remove(which)
   local mob
   if type(which) == 'number' then
     mob = table.remove(self, which)--self:removeAtIndex(which)--
@@ -26,13 +46,14 @@ function moblist:remove(which)
   return mob
 end
 
-function moblist:remove_all()
+function Moblist:removeAll()
   for i = #self, 1, -1 do
     self[i] = nil
   end
 end
 
-function moblist:handle_collision()
+function Moblist:handleCollision()
+  error'not yet implemented'
   local first, second
   local first_c, second_c
   for i1 = 1, #self do
@@ -56,13 +77,13 @@ function moblist:handle_collision()
       end
     end
   end
-  self:remove_dead()
+  self:removeDead()
 end
 
-function moblist:remove_dead()
+function Moblist:removeDead()
   for i, v in ipairs(self) do
-    if v:is_dead() then
-      local mobs = v:do_death()
+    if v:isDead() then
+      local mobs = v:doDeath()
       moblist:remove(i)
       for _, mob in ipairs(mobs) do
         moblist:insert(mob)
@@ -71,3 +92,4 @@ function moblist:remove_dead()
   end
 end
 
+return Moblist
