@@ -48,4 +48,9 @@ function Palette:set(i)
   end
 end
 
+function Palette:setImage(image)
+  self.image = image
+  self.shader:send('palettes', self.image)
+end
+
 return Palette

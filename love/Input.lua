@@ -89,16 +89,16 @@ function Input:update()
   local value = self.value
   for _, name in ipairs(self.inputs) do
     if self:isDown(name) then
-      hold_time[name] = hold_time[name] + 1
+      hold_time[name] = math.max(1, hold_time[name] + 1)
       value[name] = 1
     else
-      hold_time[name] = 0
+      hold_time[name] = math.min(0, hold_time[name] - 1)
       value[name] = 0
     end
   end
 end
 
--- TODO: change bindings to be a list instead of only one key?
+-- TODO: change bindings to be a list instead of only one key
 
 function Input:isDown(name)
   local device, binding = unpack(self.binding[name])

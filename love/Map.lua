@@ -4,10 +4,6 @@ local Vector = require 'Vector'
 
 local Map = simpleClass'Map'
 
---local function pack_index(x, y, z)
-  --return x + bit.lshift(y, 8) + bit.lshift(z, 16)
---end
-
 function Map:pack_index(x, y, z)
   if not self:inBounds(x, y, z) then error('index out of bounds', 2) end
   return x + bit.lshift(y, 8) + bit.lshift(z, 16)
@@ -21,9 +17,14 @@ function Map:inBounds(x, y, z)
 end
 
 function Map:new(tileset, width, height, layers)
-  width = type(width) == 'number' and width > 0 and width or 1
-  height = type(height) == 'number' and height > 0 and height or 1
-  layers = type(layers) == 'number' and layers > 0 and layers or 1
+  width = type(width) == 'number' and width or 1
+  height = type(height) == 'number' and height or 1
+  layers = type(layers) == 'number' and layers or 1
+
+  if width > 255 or height > 255 or layers > 255 or
+    width < 0 or height < 0 or layers < 0 then
+    error('Map width, height, and layers must each be in the range of 0 to 255 inclusive', 2)
+  end
 
   local map = {
     tile = {},
@@ -68,8 +69,6 @@ end
 
 function Map:setTileset(tileset)
   self.tileset = tileset
-  self.totalWidth = self.tileset.w * self.width
-  self.totalHeight = self.tileset.h * self.height
   for layer = 0, self.layers - 1 do
     self:initCacheLayer(layer)
     --self:markDirty(layer)
@@ -81,6 +80,8 @@ function Map:initCacheLayer(layer)
   if layer >= self.layers then error'layer outside of bounds' end
   local cache = {}
   self.cache[layer] = cache
+  self.totalWidth = self.tileset.w * self.width
+  self.totalHeight = self.tileset.h * self.height
   cache.canvas = love.graphics.newCanvas(self.totalWidth, self.totalHeight)
   cache.image = love.graphics.newImage(cache.canvas:newImageData())
   --cache.clean = false
@@ -183,6 +184,29 @@ function Map:drawLayerRaw(layer, pos)
   end
 end
 
+function Map:drawRectRaw(layer, pos, topleft, dim)
+  if layer >= self.layers then error'layer outside of bounds' end
+  local dim = Vector:new{self.tileset.w, self.tileset.h}
+  pos = pos + dim / 2
+  local tile
+  local x, y = topleft:unpack()
+  local w, h = dim:unpack()
+  for yi = 0, h - 1 do
+    for xi = 0, w - 1 do
+      local i = self:pack_index(xi + x, yi + y, layer)
+      tile = self.tile[i]
+      if tile ~= 0 or self.drawZero then
+        local tilePos = Vector:new{xi, yi}
+        self.tileset:drawTile(
+          tile + self.tileOffset,
+          pos + tilePos * dim,
+          self.attributes[i]
+        )
+      end
+    end
+  end
+end
+
 function Map:updateCacheLayer(layer)
   if layer >= self.layers then error'layer outside of bounds' end
   local cache = self.cache[layer]
@@ -197,7 +221,84 @@ function Map:updateCacheLayer(layer)
   cache.clean = true
 end
 
+local MAP_FILE_VERSION = 2
+
 function Map:save(filename, overwrite_protect)
+  if type(filename) ~= 'string' then
+    error''
+  end
+
+  local mapdir = 'save/'
+
+  local info = love.filesystem.getInfo(mapdir)
+  if info then
+    if info.type ~= 'directory' then
+      error('save location is not a directory', 2)
+    end
+  else
+    love.filesystem.createDirectory(mapdir)
+  end
+
+  local fullpath = mapdir .. filename
+
+  local info = love.filesystem.getInfo(fullpath)
+  if info then
+    if info.type == 'file' then
+      if overwrite_protect then
+        error('file already exists', 2)
+      end
+    else
+      error('file already exists as a ' .. tostring(info.type), 2)
+    end
+  end
+
+  local data = ''
+
+  local function write(n)
+    data = data .. n
+  end
+
+  local function write_str(n)
+    write(tostring(n))
+  end
+
+  local function write_n(n)
+    write(tostring(n) .. '\n')
+  end
+
+  local function write_str_comma(n)
+    write(tostring(n) .. ',')
+  end
+
+  write_n(0)
+  write_n(MAP_FILE_VERSION)
+  write_n(self.width)
+  write_n(self.height)
+  write_n(self.layers)
+
+    --write_n(tile)
+  for zi = 0, self.layers - 1 do
+    for _, which in ipairs{'tile', 'attributes'} do
+      --write_n('layer' .. tostring(zi))
+      for yi = 0, self.height - 1 do
+        for xi = 0, self.width - 1 do
+          write_str_comma(self[which][self:pack_index(xi, yi, zi)])
+        end
+        write'\n'
+      end
+      write'\n'
+    end
+    write'\n'
+  end
+
+  write_n'EOF'
+
+  --print(data)
+
+  return love.filesystem.write(fullpath, data)
+end
+
+function Map:save_old(filename, overwrite_protect)
   error'no map saving yet'
   if type(filename) ~= 'string' then
     error''
@@ -273,9 +374,13 @@ function Map:save(filename, overwrite_protect)
   return love.filesystem.write(fullpath, data)
 end
 
-function Map:load(filename, mapdir)
+function Map:load(filename, mapdir, tileset)
   if self == Map then
-    self = Map:new()
+    self = Map:new(tileset)
+  else
+    if tileset then
+      self:setTileset(tileset)
+    end
   end
 
   if type(filename) ~= 'string' then
@@ -286,14 +391,18 @@ function Map:load(filename, mapdir)
 
   local info = love.filesystem.getInfo(mapdir)
   if not (info and info.type == 'directory') then
-    return false, 'directory does not exist'
+    return false, 'directory "' .. mapdir .. '" does not exist'
   end
 
   local fullpath = mapdir .. filename
 
   local info = love.filesystem.getInfo(fullpath)
-  if not (info and info.type == 'file') then
-    return false, 'map file does not exist'
+  if not info then
+    return false, 'map file "' .. fullpath .. '" does not exist'
+  else
+    if info.type ~= 'file' then
+      return false, 'map file "' .. fullpath .. '" is a ' .. tostring(info.type) .. ' not a file'
+    end
   end
 
   local data = love.filesystem.read(fullpath)
@@ -301,91 +410,6 @@ function Map:load(filename, mapdir)
   if not data then error'' end
 
   return self:loadString(data)
-
-  --[===[
-  local lines = {}
-
-  for s in data:gmatch("[^\r\n]+") do
-    table.insert(lines, s)
-  end
-
-  data = nil
-
-  local line_index = 1
-
-  local function read_number()
-    local line = lines[line_index]
-    local n = tonumber(line)
-    line_index = line_index + 1
-    return n
-  end
-
-  local function read_csv_line()
-    local line = lines[line_index]
-    if not line then return end
-    local numbers = {}
-    for s in line:gmatch("[^,]+") do
-      table.insert(numbers, s)
-    end
-    line_index = line_index + 1
-    if #numbers > 0 then
-      return numbers
-    end
-  end
-
-  for i, v in ipairs(lines) do
-    --print(i, v)
-  end
-
-  self.width = read_number()
-  self.height = read_number()
-  self.layers = read_number()
-
-  --for _, v in ipairs{self.width, self.height, self.layers} do
-    --print(v, type(v))
-  --end
-
-  local csv = {}
-  do
-    local i = 1
-    local number
-    local line = read_csv_line()
-
-    while line do
-      for _, v in ipairs(line) do
-        if v == 'EOF' then break end
-        number = tonumber(v)
-        if number then
-          csv[i] = number
-          i = i + 1
-        else
-          print(v, type(v))
-        end
-      end
-      line = read_csv_line()
-    end
-  end
-
-  --for i, v in ipairs(csv) do
-    --print(i, v, type(v))
-  --end
-
-  local i = 1
-  for _, tile in ipairs{'tile', 'attributes'} do
-    for zi = 0, self.layers - 1 do
-      for yi = 0, self.height - 1 do
-        for xi = 0, self.width - 1 do
-          self[tile][self:pack_index(xi, yi, zi)] = csv[i]
-          i = i + 1
-        end
-      end
-      self:initCacheLayer(zi)
-      self:markDirty(zi)
-    end
-  end
-
-  return true
-  --]===]
 end
 
 function Map:loadString(data)
@@ -442,8 +466,21 @@ function Map:loadString(data)
     self.width = magic
   end
 
+  if version <= 0 or version > MAP_FILE_VERSION then
+    error('unrecognized map file version ' .. tostring(version), 2)
+  end
+
   self.height = read_number()
   self.layers = read_number()
+
+  --[[
+  print'---'
+  print(math.random())
+  print('version', version)
+  print('width', self.width)
+  print('height', self.height)
+  print('layers', self.layers)
+  --]]
 
   --for _, v in ipairs{self.width, self.height, self.layers} do
     --print(v, type(v))
@@ -475,10 +512,11 @@ function Map:loadString(data)
   --end
 
   local i = 1
-  local function read_layer(layer, type)
+  local function read_layer(layer, tile_type)
     for yi = 0, self.height - 1 do
       for xi = 0, self.width - 1 do
-        self[type][self:pack_index(xi, yi, layer)] = csv[i]
+        self[tile_type][self:pack_index(xi, yi, layer)] = csv[i]
+        --print(xi, yi, layer, tile_type, i, csv[i])
         i = i + 1
       end
     end
@@ -487,15 +525,15 @@ function Map:loadString(data)
   end
 
   if version == 1 then
-    for _, type in ipairs{'tile', 'attributes'} do
+    for _, tile_type in ipairs{'tile', 'attributes'} do
       for layer = 0, self.layers - 1 do
-        read_layer(layer, type)
+        read_layer(layer, tile_type)
       end
     end
   else
     for layer = 0, self.layers - 1 do
-      for _, type in ipairs{'tile', 'attributes'} do
-        read_layer(layer, type)
+      for _, tile_type in ipairs{'tile', 'attributes'} do
+        read_layer(layer, tile_type)
       end
     end
   end

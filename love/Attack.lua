@@ -60,30 +60,37 @@ function Attack:new(t, n)
 end
 
 function Attack:dup()
-  local dmg = {}
   local damage = {}
-  dmg.damage = damage
   for type, v in pairs(self.damage) do
     damage[type] = v
   end
-  return setmetatable(dmg, Attack)
+  local effect = {}
+  for type, v in pairs(self.effect) do
+    effect[type] = v
+  end
+  return setmetatable({
+    damage = damage,
+    effect = effect,
+  }, Attack)
 end
 
-local function calculate_final(damage, multiplier, resistance)
-  return math.floor(math.max(0, damage * (multiplier) - resistance))
+local function calculate_final(damage, multiplier, reduction)
+  return math.floor(math.max(0, damage * multiplier - reduction))
+  --return math.floor(math.max(0, math.max(1, damage * multiplier) - reduction))
+  --return math.floor(math.max(0, math.ceil(damage * multiplier) - reduction))
 end
 
-function Attack:calculate_damage(type, multiplier, resistance)
+function Attack:calculate_damage(type, multiplier, reduction)
   multiplier = multiplier or 1
-  resistance = resistance or 0
-  local damage = calculate_final(self.damage[type], multiplier, resistance)
+  reduction = reduction or 0
+  local damage = calculate_final(self.damage[type], multiplier, reduction)
   return damage
 end
 
-function Attack:calculate_effect(type, multiplier, resistance)
+function Attack:calculate_effect(type, multiplier, reduction)
   multiplier = multiplier or 1
-  resistance = resistance or 0
-  local effect = calculate_final(self.effect[type], multiplier, resistance)
+  reduction = reduction or 0
+  local effect = calculate_final(self.effect[type], multiplier, reduction)
   return effect
 end
 

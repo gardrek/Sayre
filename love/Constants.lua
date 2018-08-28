@@ -1,7 +1,7 @@
 local mt = {
   __index = function(t, k)
     local v = rawget(t, k)
-    if not v then error('Attempt to access non-existant constant ' .. tostring(k) 'in constant table ' .. tostring() .. '.', 2) end
+    if not v then error('Attempt to access non-existant constant ' .. tostring(k) .. ' in constant table ' .. tostring('') .. '.', 2) end
     return v
   end,
 }

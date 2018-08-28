@@ -119,15 +119,21 @@ do
       }
       self.dir = vec2dir(move) or self.dir
       if not move:isNull() then
-        self.pos = self.pos + move
+        self.delta_pos = dir2vec[self.dir] -- * self.speed
+      else
+        self.delta_pos = Vector{0, 0}
       end
     end
+
+
+    self.pos = self.pos + self.delta_pos
 
     --if self.rotation_type == 'add' then
       self.tileindex = self.dir
     --end
 
     if true then return end
+    ----------------------------------------------------------------
 
     self.delta_pos = Vector:new{0, 0}
     --[[
