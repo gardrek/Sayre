@@ -8,15 +8,23 @@ return function(name)
     if value == nil then
       value = rawget(class, key)
     end
-    if value == nil then
-      value = rawget(class, key)
-    end
+    --if value == nil then
+      --value = rawget(class, key)
+    --end
     if value == nil then
       error(
         'Attempt to access non-existant member ' .. key ..
         ' of class ' .. (rawget(class, 'class') or 'unknown class'),
         2
       )
+    end
+    return value
+  end
+
+  function class:has(member)
+    local value = rawget(self, member)
+    if value == nil then
+      value = rawget(class, member)
     end
     return value
   end

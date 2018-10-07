@@ -1,0 +1,5 @@
+"mob" : {
+  "name" : "Bob",
+  "hearts" : 3,
+  "hitbox" : [ 0, 0, 16, 16 ]
+}

@@ -1,4 +1,21 @@
-local Mob =  Class 'Mob'
+--[[
+
+== mob components ==
+
+all mobs have these:
+position (2D vector) - where it is on screen
+velocity? (2D vector) - movement vector (direction and speed)
+
+some mobs have these:
+health (integer number of max hearts and integer current health) - for combat
+pickup - data for if the mob can be picked up
+ai - ???
+
+]]
+
+local FSM = require'FSM'
+
+local Mob =  Class'Mob'
 
 Mob.template = {
   name = 'no-name-mob',
@@ -7,13 +24,15 @@ Mob.template = {
   tileindex = 0,
   pos = Vector{0, 0},
   delta_pos = Vector{0, 0},
+  speed = 1,
   draworder = 0,
   human = 0, -- whether this mob is controlled by a player
-    -- 0 is AI, anything else is that player's number
+    -- 0 is AI, 1+ is that player's number
   rotation_type = 'rotate',
     -- TODO: should these instead be incorporated when building the tilemap
       -- and essentially always operate in "add" mode? probably
     -- rotation_types:
+    -- none - no rotation
     -- add - dir number is added to tilemap index
     -- rotate - sprite is rotated normally
     -- flip - sprite is flipped across x/y axis
@@ -21,12 +40,43 @@ Mob.template = {
   hearts = 1,
   health = false,
   input = false,
+  state = false,
+    -- either false or a state machine
 }
 
 function Mob:init(template)
   if self.hearts and not self.health then
     self.health = self.hearts * HEART_VALUE
   end
+end
+
+function Mob:newMobFSM()
+  if self == Mob then error'' end
+  self.state = FSM:new(function(action, arg)
+    local state = 'move'
+    while true do
+      if action then
+        print(action, arg)
+        if action == 'use' then
+          assert(type(arg) == 'string')
+          local prev_state = state
+          state = 'attack'
+          local i = 0
+          while i < 12 do
+            action, arg = coroutine.yield(state)
+            if not action then i = i + 1 end
+            print(i)
+          end
+          --action, arg = coroutine.yield(prev_state)
+          state = prev_state
+        else
+          print(action)
+        end
+      end
+      action, arg = coroutine.yield(state)
+    end
+  end)
+  return self
 end
 
 do
@@ -38,26 +88,9 @@ do
       name = 'player' .. tostring(n),
       team = 'player',
       hearts = 3,
-      human = 1,
-      --[[
-      update = function(self)
-        Mob.update(self)
-        local n = 0
-        if self.state == 'walk' then
-          if self.input.use_left == 1 and self.input_last_frame.use_left == 0 then
-            self:use_item(self.inventory.equipment.left_hand, 'left')
-          elseif self.input.use_right == 1 and self.input_last_frame.use_right == 0 then
-            self:use_item(self.inventory.equipment.right_hand, 'right')
-          elseif self.input.use_left_reserve == 1 and self.input_last_frame.use_left_reserve == 0 then
-            self:use_item(self.inventory.equipment.left_reserve, 'left')
-          elseif self.input.use_right_reserve == 1 and self.input_last_frame.use_right_reserve == 0 then
-            self:use_item(self.inventory.equipment.right_reserve, 'right')
-          end
-        elseif self.state == 'attack' then
-        end
-      end,
-      ]]
-    }, template)
+      human = n,
+      rotation_type = 'add',
+    }, template):newMobFSM() -- FIXME: HAX
   end
 
   --function player:add_item(item, count)
@@ -107,121 +140,101 @@ do
     return b, m, dir
   end
 
+  local function alignvec(pos, delta, align)
+    local x, y = self.pos:unpack()
+    local mx, my = delta:unpack()
+    local dir = vec2dir(delta)
+    if math.abs(mx) > math.abs(my) then
+      --TODO: actually make this function if deemed necessary
+      y, x, dir = alignmove(y, x, math.abs(mx), mx, 8)
+      self.pos = Vector{x, y}
+    elseif math.abs(my) > math.abs(mx) then
+      x, y, dir = alignmove(x, y, math.abs(my), my, 8)
+      self.pos = Vector{x, y}
+    end
+  end
+
   local dir
 
   function Mob:update()
-    if self.input then
-      self.input:update()
-      local value = self.input.value
-      local move = Vector{
-        value.right - value.left,
-        value.down - value.up,
-      }
-      self.dir = vec2dir(move) or self.dir
-      if not move:isNull() then
-        self.delta_pos = dir2vec[self.dir] -- * self.speed
-      else
-        self.delta_pos = Vector{0, 0}
-      end
-    end
-
-
-    self.pos = self.pos + self.delta_pos
-
-    --if self.rotation_type == 'add' then
-      self.tileindex = self.dir
-    --end
-
-    if true then return end
-    ----------------------------------------------------------------
-
-    self.delta_pos = Vector:new{0, 0}
-    --[[
-    if self.collision then
-      --FIXME: rotating hitboxes only work for direction zero!?
-      local hb = self.collision.rotating_hitbox
-      if hb then
-        print('oy', math.random())
-        self.collision.hitbox = new_hitbox{
-          corner = hb.corner:rotate2(dir2vec[self.dir]),
-          dim = hb.dim:rotate2(dir2vec[self.dir]),
-        }
-      end
-    end
-    --]]
-
     if self.human == 0 then
       if self.ai and not self.ai.disabled then
         self.ai.tick(self)
       end
     end
+
     --[[
-    if self.counter then
-      if self.counter.health then
-        self.counter.health = math.max(-self.hearts * HEART_VALUE, math.min(self.counter.health, self.hearts * HEART_VALUE))
-        if self.health - self.counter.health > 0 then
-          self.counter.health = self.counter.health + 1
-          if self.counter.health % 4 == 0 then Sound.heart:replay() end
-        elseif self.health - self.counter.health < 0 then
-          self.counter.health = self.counter.health - 1
-        end
-      end
+    if self:has'projectile_cooldown' and self.projectile_cooldown > 0 then
+      self.projectile_cooldown = self.projectile_cooldown - 1
     end
     --]]
 
+    if self.input then
+      self.input:update()
+    end
+
+    if self.state then
+      self.state:update()
+      local state = self.state:get()
+      --print(state)
+      if state == 'move' then
+        if self.input then
+          local value = self.input.value
+          local move = Vector{
+            value.right - value.left,
+            value.down - value.up,
+          }
+          self.dir = vec2dir(move) or self.dir
+          if not move:isNull() then
+            self.delta_pos = dir2vec[self.dir] * self.speed
+          else
+            self.delta_pos = Vector{0, 0}
+          end
+          local n = 0
+          if self.input.hold_time.action_a == 1 then
+            self.state:action('use', 'right')
+            --self:use_item(self.inventory.equipment.right_hand, 'right')
+          elseif self.input.hold_time.action_b == 1 then
+            self.state:action('use', 'left')
+            --print'use left'
+            --self:use_item(self.inventory.equipment.left_hand, 'left')
+          elseif self.input.hold_time.action_x == 1 then
+            print'use right reserve'
+            --self:use_item(self.inventory.equipment.right_reserve, 'right')
+          elseif self.input.hold_time.action_y == 1 then
+            print'use left reserve'
+            --self:use_item(self.inventory.equipment.left_reserve, 'left')
+          end
+        end
+
+        --[[
+        self.knockback_delta = self.knockback_delta or Vector:new{0, 0}
+        self.delta_pos = self.delta_pos + (Vector:new{x, y} - self.pos) * self.speed + self.knockback_delta
+        self.knockback_delta = self.knockback_delta / 2
+        if self.knockback_delta:mag() < 0.01 then self.knockback_delta = Vector:new{0, 0} end
+        --]]
+      elseif state == 'attack' then
+        -- do attack stuff i guess
+        self.delta_pos = Vector{0, 0}
+      else
+        error('mob in invalid state "' .. tostring(state) .. '"')
+      end
+    end
+
+    self.pos = self.pos + self.delta_pos
+
+    if self.rotation_type == 'add' then
+      self.tileindex = self.dir
+    end
+
     self:setDrawOrder()
 
-    if self.projectile_cooldown and self.projectile_cooldown > 0 then
-      self.projectile_cooldown = self.projectile_cooldown - 1
-    end
-
-
-    if self.state == 'walk' or self.state == 'invuln' then
-      local delta = Vector:new{
-        self.input.right - self.input.left,
-        self.input.down - self.input.up,
-      }
-      local grid = 8
-      local xdir, ydir = 0, 0
-      local x, y
-      if math.abs(delta.x) > math.abs(delta.y) then
-        y, x, xdir = alignmove(self.pos.y, self.pos.x, math.abs(delta.x), delta.x, grid)
-      else -- by not handling x == y separately we have one axis (y) which is favored when a diagonal is pressed
-        x, y, ydir = alignmove(self.pos.x, self.pos.y, math.abs(delta.y), delta.y, grid)
-      end
-
-      self.knockback_delta = self.knockback_delta or Vector:new{0, 0}
-      self.delta_pos = self.delta_pos + (Vector:new{x, y} - self.pos) * self.speed + self.knockback_delta
-      self.knockback_delta = self.knockback_delta / 2
-      if self.knockback_delta:mag() < 0.01 then self.knockback_delta = Vector:new{0, 0} end
-
-
-      local prevdir = self.dir
-
-      --FIXME: makes for sliding, but you face the right way so
-      xdir, ydir = delta:unpack()
-      if xdir > 0 then xdir = 1 end
-      if xdir < 0 then xdir = -1 end
-      if ydir > 0 then ydir = 1 end
-      if ydir < 0 then ydir = -1 end
-      if ydir == 0 then
-        if xdir == 1 then
-          self.dir = 0
-        elseif xdir == -1 then
-          self.dir = 2
-        end
-      else
-        if ydir == 1 then
-          self.dir = 1
-        elseif ydir == -1 then
-          self.dir = 3
-        end
-      end
-
-    elseif self.state == 'attack' then
-    else
-      error('mob in invalid state "' .. tostring(self.state) .. '"')
-    end
+if true then return end
+----------------------------------------------------------------
+--============================================================--
+-- The rest of this function is old and not yet re-written    --
+--============================================================--
+----------------------------------------------------------------
 
     if self.anim and self.anim.states then
       local current = self.anim.states[self.state]

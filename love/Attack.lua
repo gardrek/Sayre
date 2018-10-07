@@ -6,6 +6,7 @@ Attack.damage_types = {
   'blunt',
   'fire',
   'blast',
+  'pierce',
 }
 
 Attack.isDamageType = {}

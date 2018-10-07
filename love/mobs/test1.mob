@@ -1,0 +1,29 @@
+spritesheet (tilemap with each layer being the sprite)
+
+ai?
+animation?
+tick function?
+behavior?
+what about spawning other mobs?
+
+basic data:
+  team?
+  health?
+  hitboxes and damage types
+
+
+
+::things stored in the mob typeObject::
+graphics:
+  spritesheet (tilemap with each layer being a sprite)
+  animation
+
+stats:
+  max health
+  hitboxes, effects, and items
+  drop data (what mobs spawn when this mob dies)
+
+behavior:
+  reference to AI function
+  reference to tick function
+  other behavior?

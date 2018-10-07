@@ -7,18 +7,13 @@ function Screen:getMousePosition()
   return (rawMouse - pos) / self.scale
 end
 
-function Screen:window_size(w, h, scale)
-  scale = scale or 1
-
+function Screen:window_size(w, h)
   self.center.x = math.floor(w / 2)
   self.center.y = math.floor(h / 2)
-  self.scale = math.floor(math.min(
-    w / (self.minw * scale),
-    h / (self.minh * scale)
-  ))
+  self.scale = math.floor(math.min(w / self.minw, h / self.minh))
   self.scale = math.max(self.scale, 1)
-  self.x = self.center.x - math.floor(self.width / 2) * self.scale * scale
-  self.y = self.center.y - math.floor(self.height / 2) * self.scale * scale
+  self.x = self.center.x - math.floor(self.width / 2) * self.scale
+  self.y = self.center.y - math.floor(self.height / 2) * self.scale
 end
 
 function Screen:update_window()
@@ -30,6 +25,10 @@ end
 
 function Screen:renderTo(func)
   self.canvas:renderTo(func)
+end
+
+function Screen:draw(x, y)
+  love.graphics.draw(self.canvas, self.x + (x or 0), self.y + (y or 0), 0, self.scale, self.scale)
 end
 
 function Screen:new(w, h, border)

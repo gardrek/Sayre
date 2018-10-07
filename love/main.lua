@@ -1,5 +1,7 @@
 ---[[
+-- number of milliseconds per update
 local TICKRATE = 1 / 60
+
 function love.run()
   if love.load then love.load(love.arg.parseGameArguments(arg), arg) end
 
@@ -60,6 +62,8 @@ io.stdout:setvbuf('no') -- enable normal use of the print() command
 love.graphics.setDefaultFilter('nearest', 'nearest') -- Pixel scaling
 
 require 'Constants'
+
+local Base32 = require 'Base32'
 
 --------
 
@@ -135,6 +139,8 @@ function love.load()
 
   Screen:update_window()
   Screen:window_size(love.graphics.getWidth(), love.graphics.getHeight())
+
+  test_map:drawLayer(0, Vector{1000, 1000})
 end
 
 local test_explosion_effect = false
@@ -150,17 +156,55 @@ function love.keypressed(key, scancode, isrepeat)
   elseif key == 'f5' then
     --Sound.pickup:replay()
     test_explosion_effect = 4
+  elseif key == 'f2' then
+    test_map.tileOffset = test_map.tileOffset + 1
+    test_map:markDirtyAll()
+  elseif key == 'f3' then
+    test_map.tileOffset = test_map.tileOffset - 1
+    test_map:markDirtyAll()
   end
 end
+
+local frames = 0
+
+
+local border_color = Vector{0, 0, 0}
+
 
 function love.update(dt)
   --if SLOWMO then
     --love.timer.sleep(0.1)
   --end
 
+  frames = frames + 1
+
+  do
+    local f = frames % 1000
+    local n
+    if f < 500 then
+      n = f / 500
+    else
+      n = (500 - (f - 500)) / 500
+    end
+    --border_color = Vector{n * 0.35, n * 0.65, n * 1.0}
+    border_color = Vector{
+      math.floor((n * 0.35) * 15) / 15,
+      math.floor((n * 0.65) * 15) / 15,
+      math.floor((n * 1.0) * 15) / 15,
+    }
+  end
+
+  --[[
+  if frames % 10 == 0 then
+    test_map.tileOffset = test_map.tileOffset + 1
+    test_map.tileOffset = (test_map.tileOffset - 0x160) % 0x50 + 0x160
+    test_map:markDirtyAll()
+  end
+  --]]
+
   Camera:update()
 
-  print(inspect(player.input.hold_time))
+  --print(inspect(player.input.hold_time))
 
   --Camera.target = Camera.target + Vector:new{1, 1}
 
@@ -174,6 +218,7 @@ end
 
 function love.draw(delta)
   love.graphics.clear(Color.ScreenBorder)
+  --love.graphics.clear(border_color)
 
   Screen:renderTo(function()
     if DEBUG_MODE then
@@ -184,7 +229,7 @@ function love.draw(delta)
     love.graphics.setColor(Color.FullBright)
 
     if test_explosion_effect then
-      if test_explosion_effect % 3 <= 1 then
+      if test_explosion_effect % 4 <= 1 then
         test_explosion_palette:set(0)
       end
       test_explosion_effect = test_explosion_effect - 1
@@ -192,9 +237,13 @@ function love.draw(delta)
         test_explosion_effect = false
       end
     end
-    test_map:drawRectRaw(0, -Camera.pos, Vector{16, 0}, Vector{10, 10})
-    --test_map:drawLayer(0, -Camera.pos)
+    --test_map:drawRectRaw(0, -Camera.pos, Vector{0, 0}, Vector{24, 16})
+    --for i = 1, 4 do
+      --test_map:redrawRect(0, Vector{math.random(0, 11) * 2, math.random(0, 7) * 2}, Vector{2, 2})
+    --end
+    test_map:drawLayer(0, -Camera.pos)
 --print(delta)
+
     for i, v in ipairs(moblist) do
       if v.tilemap then
         --v.tilemap:drawLayer(v.tileindex, v.pos)
@@ -211,7 +260,7 @@ function love.draw(delta)
 
     --test_map:drawLayer(1, -Camera.pos)
 
-    Palette:set()
+    --Palette:set()
     for i = 1, (test_map.layers - 1) do
       test_map:drawLayer(i, -Camera.pos)-- + Vector{math.random(0, 7), math.random(0, 7)})
     end
@@ -220,7 +269,7 @@ function love.draw(delta)
   end)
 
   love.graphics.setColor(Color.FullBright)
-  love.graphics.draw(Screen.canvas, Screen.x, Screen.y, 0, Screen.scale, Screen.scale)
+  Screen:draw()
 
   if DEBUG_MODE then
     love.graphics.print('FPS: ' .. tostring(love.timer.getFPS()), 10, 10)

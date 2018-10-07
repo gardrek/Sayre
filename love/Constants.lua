@@ -85,7 +85,7 @@ requireGlobal 'Class'
 
 requireGlobal 'Vector'
 
-global('Screen', require('Screen'):new(192, 160, 8, 'palette.png'))
+global('Screen', require('Screen'):new(192, 160, 8))
 
 requireGlobal 'Color'
 
@@ -100,7 +100,12 @@ requireGlobal 'Sound'
 requireGlobal 'Attack'
 requireGlobal 'Hitbox'
 
-requireGlobal'Input'
+requireGlobal 'Input'
+
+requireGlobal 'Base32'
+
+requireGlobal 'loadfile'
+requireGlobal 'json'
 
 global('DEBUG_MODE', true)
 global('SLOWMO', false)
@@ -113,6 +118,7 @@ global('HALFTILEVEC', TILEVEC / 2)
 global('ROOM_DIMENSIONS', Vector{TILESIZE * 12, TILESIZE * 8})
 
 requireGlobal'Mob'
+--global('Mob', require'Mob_old')
 
 requireGlobal'Moblist'
 

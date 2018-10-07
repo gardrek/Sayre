@@ -59,7 +59,7 @@ end
 
 function Map:dup()
   local map = Map:new(self.tileset, self.width, self.height, self.layers)
-  for layer = 1, self.layers - 1 do
+  for layer = 0, self.layers - 1 do
     map:remap(function(pos, tile, attr)
       return self:getTile(pos.x, pos.y, layer), self:getAttr(pos.x, pos.y, layer)
     end, layer)
@@ -90,6 +90,12 @@ end
 
 function Map:markDirty(layer)
   self.cache[layer].clean = false
+end
+
+function Map:markDirtyAll()
+  for layer = 0, self.layers - 1 do
+    self:markDirty(layer)
+  end
 end
 
 function Map:getTile(x, y, z)
@@ -184,13 +190,13 @@ function Map:drawLayerRaw(layer, pos)
   end
 end
 
-function Map:drawRectRaw(layer, pos, topleft, dim)
+function Map:drawRectRaw(layer, pos, topleft, rectDim)
   if layer >= self.layers then error'layer outside of bounds' end
-  local dim = Vector:new{self.tileset.w, self.tileset.h}
-  pos = pos + dim / 2
+  local tileDim = Vector:new{self.tileset.w, self.tileset.h}
+  pos = pos + tileDim / 2
   local tile
   local x, y = topleft:unpack()
-  local w, h = dim:unpack()
+  local w, h = rectDim:unpack()
   for yi = 0, h - 1 do
     for xi = 0, w - 1 do
       local i = self:pack_index(xi + x, yi + y, layer)
@@ -199,12 +205,43 @@ function Map:drawRectRaw(layer, pos, topleft, dim)
         local tilePos = Vector:new{xi, yi}
         self.tileset:drawTile(
           tile + self.tileOffset,
-          pos + tilePos * dim,
+          pos + tilePos * tileDim,
           self.attributes[i]
         )
       end
     end
   end
+end
+
+function Map:redrawRect(layer, topleft, rectDim)
+  if layer >= self.layers then error'layer outside of bounds' end
+  local tileDim = Vector:new{self.tileset.w, self.tileset.h}
+
+  local cache = self.cache[layer]
+
+  local x, y, w, h
+  local drawLoc
+  do
+    drawLoc = topleft * tileDim
+    x, y = drawLoc.x, drawLoc.y
+    local t = rectDim * tileDim
+    w, h = t.x, t.y
+  end
+
+  cache.canvas:renderTo(function()
+    --love.graphics.setColor(Color.FullBright)
+    --love.graphics.draw(cache.image)
+    --love.graphics.setColor(Color.Blank)
+    --love.graphics.rectangle('fill', x, y, w, h)
+    love.graphics.setScissor(x, y, w, h)
+    love.graphics.clear(Color.Blank)
+    love.graphics.setScissor()
+    love.graphics.setColor(Color.FullBright)
+    self:drawRectRaw(layer, drawLoc, topleft, rectDim)
+  end)
+
+  cache.image = love.graphics.newImage(cache.canvas:newImageData())
+  cache.clean = true
 end
 
 function Map:updateCacheLayer(layer)
