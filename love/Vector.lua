@@ -64,14 +64,6 @@ function Vector:dup()
   return obj
 end
 
-function Vector:getElement(i)
-  return self[i]
-end
-
-function Vector:setElement(i, v)
-  self[i] = v
-end
-
 function Vector:mag()
   return math.sqrt(self:magsqr())
 end

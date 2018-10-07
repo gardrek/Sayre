@@ -2,9 +2,8 @@ local Screen = {}
 Screen.__index = Screen
 
 function Screen:getMousePosition()
-  local pos = Vector:new{self.x, self.y}
   local rawMouse = Vector:new{love.mouse.getPosition()}
-  return (rawMouse - pos) / self.scale
+  return (rawMouse - self.pos) / self.scale
 end
 
 function Screen:window_size(w, h)
@@ -12,8 +11,8 @@ function Screen:window_size(w, h)
   self.center.y = math.floor(h / 2)
   self.scale = math.floor(math.min(w / self.minw, h / self.minh))
   self.scale = math.max(self.scale, 1)
-  self.x = self.center.x - math.floor(self.width / 2) * self.scale
-  self.y = self.center.y - math.floor(self.height / 2) * self.scale
+  self.pos.x = self.center.x - math.floor(self.width / 2) * self.scale
+  self.pos.y = self.center.y - math.floor(self.height / 2) * self.scale
 end
 
 function Screen:update_window()
@@ -28,14 +27,13 @@ function Screen:renderTo(func)
 end
 
 function Screen:draw(x, y)
-  love.graphics.draw(self.canvas, self.x + (x or 0), self.y + (y or 0), 0, self.scale, self.scale)
+  love.graphics.draw(self.canvas, self.pos.x + (x or 0), self.pos.y + (y or 0), 0, self.scale, self.scale)
 end
 
 function Screen:new(w, h, border)
   local screen = {
-    x = 0,
-    y = 0,
-    scale = 3,
+    pos = Vector{0, 0},
+    scale = 1,
     width = w,
     height = h,
   }
@@ -50,10 +48,9 @@ function Screen:new(w, h, border)
     screen.minh = screen.height
   end
 
-  screen.center = Vector:new{
-    math.floor(love.graphics.getWidth() / 2),
-    math.floor(love.graphics.getHeight() / 2),
-  }
+  screen.center = Vector{0, 0}
+
+  Screen.window_size(screen, love.graphics.getWidth(), love.graphics.getHeight())
 
   setmetatable(screen, Screen)
 
